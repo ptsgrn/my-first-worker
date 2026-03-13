@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import cors from '@elysiajs/cors';
 import { CloudflareAdapter } from 'elysia/adapter/cloudflare-worker';
+import { env } from 'cloudflare:workers';
 
 interface Task {
 	id: string;
@@ -8,31 +9,34 @@ interface Task {
 	isCompleted: boolean;
 }
 
-let tasks: Task[] = [];
-
 export default new Elysia({
 	adapter: CloudflareAdapter,
 })
 	.use(cors())
-	.get('/', () => 'สวัสดีฉันมาจากประเทศไทย')
-	.get('/tasks', () => tasks)
+	.get('/', async () => 'สวัสดีฉันมาจากประเทศไทย')
+	.get('/tasks', async () => {
+		const list = await env.tasks.list();
+		const tasks: Task[] = [];
+		for (const key of list.keys) {
+			const value = await env.tasks.get(key.name);
+			if (value) {
+				tasks.push(JSON.parse(value));
+			}
+		}
+		return tasks;
+	})
 	.post(
 		'/tasks',
-		({ body, status }) => {
-			console.log('Received request body:', body);
-			const { title } = body as { title: string };
+		async ({ body, status }) => {
+			const { title } = body;
 			const newTask: Task = {
 				id: crypto.randomUUID(),
 				title,
 				isCompleted: false,
 			};
 
-			// เช็คว่าซ้ำกับ task ที่มีอยู่แล้วหรือไม่
-			if (tasks.some((t) => t.title === title)) {
-				return status(400, 'Task with the same title already exists');
-			}
-
-			tasks.push(newTask);
+			// บันทึก task ใหม่ลง KV
+			await env.tasks.put(newTask.id, JSON.stringify(newTask));
 
 			return newTask;
 		},
@@ -57,13 +61,13 @@ export default new Elysia({
 	// สำหรับการดูรายละเอียดของ task แต่ละตัว
 	.get(
 		'/tasks/:id',
-		({ params, status }) => {
+		async ({ params, status }) => {
 			const { id } = params;
-			const task = tasks.find((t) => t.id === id);
-			if (!task) {
+			const taskData = await env.tasks.get(id);
+			if (!taskData) {
 				return status(404, 'Task not found');
 			}
-			return task;
+			return JSON.parse(taskData);
 		},
 		{
 			body: t.Object({
@@ -81,23 +85,28 @@ export default new Elysia({
 	)
 	.patch(
 		'/tasks/:id',
-		({ params, body, status }) => {
+		async ({ params, body, status }) => {
 			const { id } = params;
-			const taskIndex = tasks.findIndex((t) => t.id === id);
-			if (taskIndex === -1) {
+			const taskData = await env.tasks.get(id);
+			if (!taskData) {
 				return status(404, 'Task not found');
 			}
 
-			const { title, isCompleted } = body as Partial<{ title: string; isCompleted: boolean }>;
+			const task: Task = JSON.parse(taskData);
+			const { title, isCompleted } = body;
 
+			// อัปเดตข้อมูลที่ได้รับมา (ถ้ามี)
 			if (title !== undefined) {
-				tasks[taskIndex].title = title;
+				task.title = title;
 			}
 			if (isCompleted !== undefined) {
-				tasks[taskIndex].isCompleted = isCompleted;
+				task.isCompleted = isCompleted;
 			}
 
-			return tasks[taskIndex];
+			// บันทึก task ที่อัปเดตแล้วลง KV
+			await env.tasks.put(id, JSON.stringify(task));
+
+			return task;
 		},
 		{
 			params: t.Object({
@@ -112,14 +121,13 @@ export default new Elysia({
 	)
 	.delete(
 		'/tasks/:id',
-		({ params, status }) => {
+		async ({ params, status }) => {
 			const { id } = params as { id: string };
-			const taskIndex = tasks.findIndex((t) => t.id === id);
-			if (taskIndex === -1) {
+			const taskData = await env.tasks.get(id);
+			if (!taskData) {
 				return status(404, 'Task not found');
 			}
-
-			tasks.splice(taskIndex, 1);
+			await env.tasks.delete(id);
 			return { message: 'Task deleted successfully' };
 		},
 		{

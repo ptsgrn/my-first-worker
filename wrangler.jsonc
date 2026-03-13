@@ -12,6 +12,12 @@
 	},
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	"kv_namespaces": [
+		{
+			"binding": "tasks",
+			"id": "aa422970ad914a26a99a7badc2e75c66"
+		}
 	]
 	/**
 	 * Smart Placement
