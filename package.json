@@ -17,6 +17,7 @@
 		"wrangler": "^4.72.0"
 	},
 	"dependencies": {
+		"@elysiajs/cors": "^1.4.1",
 		"elysia": "^1.4.27"
 	}
 }

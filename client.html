@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API client</title>
+  <meta name="description"
+    content="ไคลเอนต์อย่างง่ายสำหรับทดสอบ Endpoint ที่เราสร้าง สำหรับใช้ในกิจกรรม Backend Workshop โดย CU DevClub วันที่ 14 มีนาคม 2026">
+  <meta name="keywords" content="API client, Backend Workshop, CU DevClub, 14 มีนาคม 2026">
+  <meta name="author" content="Patsagorn Yuenyong">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+
+<body>
+  <style>
+    body {
+      position: relative;
+    }
+
+    .tabbed {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .tabbed:target {
+      transition: max-height 0.5s ease-in;
+      max-height: 9999vh;
+    }
+
+    .tabbed:target~#home {
+      display: none;
+    }
+
+    output {
+      display: block;
+      margin-top: 1em;
+      padding: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      position: relative;
+    }
+
+    output:empty {
+      display: none;
+    }
+
+    output[aria-invalid="true"] {
+      border-color: red;
+      color: red;
+    }
+
+    output::before {
+      content: "Response:";
+      font-weight: bold;
+      position: absolute;
+      top: -1.5em;
+      left: 0;
+    }
+    
+    h3 {
+      margin-top: 2em;
+      top: 2em;
+      position: sticky;
+    }
+  </style>
+  <script>
+    function sendrequest(method, inputId, outputId, bodyId) {
+      const input = document.getElementById(inputId);
+      const output = document.getElementById(outputId);
+      const body = document.getElementById(bodyId);
+      output.textContent = 'Loading...';
+      output.removeAttribute('aria-invalid');
+      const bodyValue = body && (body.value || body.innerText || body.textContent).trim() || '';
+      if (body) {
+        console.log('Request body:', bodyValue);
+      }
+      try {
+        fetch(input.value, {
+          method: method,
+          body: bodyValue ? JSON.stringify(JSON.parse(bodyValue)) : undefined,
+          headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        }).then(response => response.text())
+          .then(data => {
+            output.textContent = data;
+          })
+          .catch(error => {
+            output.textContent = 'Error: ' + error.message;
+            output.setAttribute('aria-invalid', 'true');
+          });
+      } catch (error) {
+        output.textContent = 'Error: ' + error.message;
+        output.setAttribute('aria-invalid', 'true');
+      }
+    }
+  </script>
+  <main class="container">
+    <nav>
+      <ul>
+        <li><strong>Tasks</strong><br />
+          <p style="font-size: small;">Simple REST client for workshop</p>
+        </li>
+      </ul>
+      <ul>
+        <li><a href="#lab-2">Lab 2</a></li>
+        <li><a href="#lab-3">Lab 3</a></li>
+        <li><a href="#lab-4">Lab 4</a></li>
+        <li><a href="#lab-5">Lab 5</a></li>
+      </ul>
+    </nav>
+
+    <section id="lab-2" class="tabbed">
+      <h2>Lab 2: Simple task operation</h2>
+      <div>
+        <h3><code>GET /tasks</code></h3>
+        <form onsubmit="sendrequest('GET','lab-2-input', 'lab-2-output'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-2-input" placeholder="http://localhost:8787/tasks"
+              value="http://localhost:8787/tasks" />
+            <button type="submit" id="lab-2-button">Send</button>
+          </fieldset>
+        </form>
+        <output id="lab-2-output" class="output"></output>
+      </div>
+      <div>
+        <h3>
+          <code>POST /tasks</code>
+        </h3>
+        <form onsubmit="sendrequest('POST','lab-2-2-input', 'lab-2-2-output', 'lab-2-2-input-post-body'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-2-2-input" placeholder="http://localhost:8787/tasks"
+              value="http://localhost:8787/tasks" />
+            <button type="submit" id="lab-2-2-button">Send</button>
+          </fieldset>
+          <textarea id="lab-2-2-input-post-body" placeholder='{"title": "New Task"}'
+            rows="1">{"title": "New Task"}</textarea>
+        </form>
+        <output id="lab-2-2-output" class="output"></output>
+      </div>
+    </section>
+
+    <section id="lab-3" class="tabbed">
+      <h2>Lab 3: Environment Variables</h2>
+      <p>ทดสอบการใช้ Environment Variables ที่เราสร้างใน Lab 3 โดยการส่งคำขอ GET ไปยัง URL ของ Worker ของเรา</p>
+      <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+    </section>
+
+    <section id="lab-4" class="tabbed">
+      <h2>Lab 4: KV Storage</h2>
+      <p>ทดสอบการใช้ KV Storage ที่เราสร้างใน Lab 4 โดยการส่งคำขอ GET ไปยัง URL ของ Worker ของเรา</p>
+      <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+    </section>
+
+    <section id="lab-5" class="tabbed">
+      <h2>Lab 5: Durable Objects</h2>
+      <p>ทดสอบการใช้ Durable Objects ที่เราสร้างใน Lab 5 โดยการส่งคำขอ GET ไปยัง URL ของ Worker ของเรา</p>
+      <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+    </section>
+
+    <section id="home">
+      <p>
+        โปรดเลือก Lab ที่กำลังทำจากด้านบน
+      </p>
+    </section>
+  </main>
+</body>
+
+</html>

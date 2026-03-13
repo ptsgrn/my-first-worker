@@ -1,9 +1,32 @@
 import { Elysia } from 'elysia';
+import cors from '@elysiajs/cors';
 import { CloudflareAdapter } from 'elysia/adapter/cloudflare-worker';
+
+interface Task {
+	id: string;
+	title: string;
+	isCompleted: boolean;
+}
+
+let tasks: Task[] = [];
 
 export default new Elysia({
 	adapter: CloudflareAdapter,
 })
+	.use(cors())
 	.get('/', () => 'สวัสดีฉันมาจากประเทศไทย')
-	// This is required to make Elysia work on Cloudflare Worker
+	.get('/tasks', () => tasks)
+	.post('/tasks', ({ body }) => {
+		console.log('Received request body:', body);
+		const { title } = body as { title: string };
+		const newTask: Task = {
+			id: crypto.randomUUID(),
+			title,
+			isCompleted: false,
+		};
+
+		tasks.push(newTask);
+
+		return newTask;
+	})
 	.compile();
