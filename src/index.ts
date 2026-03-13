@@ -38,4 +38,43 @@ export default new Elysia({
 			}),
 		},
 	)
+	// สำหรับการดูรายละเอียดของ task แต่ละตัว
+	.get('/tasks/:id', ({ params, status }) => {
+		const { id } = params as { id: string };
+		const task = tasks.find((t) => t.id === id);
+		if (!task) {
+			status(404, 'Task not found');
+		}
+		return task;
+	})
+	.patch('/tasks/:id', ({ params, body, status }) => {
+		const { id } = params as { id: string };
+		const taskIndex = tasks.findIndex((t) => t.id === id);
+		if (taskIndex === -1) {
+			status(404, 'Task not found');
+			return;
+		}
+
+		const { title, isCompleted } = body as Partial<{ title: string; isCompleted: boolean }>;
+
+		if (title !== undefined) {
+			tasks[taskIndex].title = title;
+		}
+		if (isCompleted !== undefined) {
+			tasks[taskIndex].isCompleted = isCompleted;
+		}
+
+		return tasks[taskIndex];
+	})
+	.delete('/tasks/:id', ({ params, status }) => {
+		const { id } = params as { id: string };
+		const taskIndex = tasks.findIndex((t) => t.id === id);
+		if (taskIndex === -1) {
+			status(404, 'Task not found');
+			return;
+		}
+
+		tasks.splice(taskIndex, 1);
+		return { message: 'Task deleted successfully' };
+	})
 	.compile();
