@@ -18,11 +18,11 @@ const users: Record<string, string> = {
 export default new Elysia({
 	adapter: CloudflareAdapter,
 })
-	// แก้ติดคอ สำหรับขอข้ามโดเมน (CORS)
-	.use(cors())
 	// สร้าง OpenAPI Specification สำหรับ API ของเรา
 	// แล้วเข้าไปดูที่ /openapi
 	.use(openapi())
+	// แก้ติดคอ สำหรับขอข้ามโดเมน (CORS)
+	.use(cors())
 	.macro({
 		auth: {
 			resolve({ headers, status }) {
@@ -47,7 +47,7 @@ export default new Elysia({
 			});
 			const tasks: Task[] = [];
 			for (const key of list.keys) {
-				const value = await env.tasks.get(user + key.name); // ดึงข้อมูล task ตาม key ที่ได้จาก list
+				const value = await env.tasks.get(key.name); // ดึงข้อมูล task ตาม key ที่ได้จาก list
 				if (value) {
 					tasks.push(JSON.parse(value));
 				}
@@ -70,7 +70,7 @@ export default new Elysia({
 
 			// บันทึก task ใหม่ลง KV
 			await env.tasks.put(user + newTask.id, JSON.stringify(newTask));
-
+			console.log(`Task created: ${newTask.id} for user ${user}`);
 			return newTask;
 		},
 		{

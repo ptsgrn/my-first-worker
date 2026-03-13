@@ -158,7 +158,46 @@
       display: none;
     }
 
-    #lab-4-task-list:empty + #lab-4-empty {
+    #lab-4-task-list:empty+#lab-4-empty {
+      display: block;
+    }
+
+    #lab-5-task-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #lab-5-status {
+      display: none;
+      padding: 0.6em 1em;
+      border-radius: 4px;
+      margin-bottom: 1em;
+      font-size: 0.9em;
+    }
+
+    #lab-5-status.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    #lab-5-status.error {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    #lab-5-empty {
+      text-align: center;
+      color: var(--pico-muted-color, #888);
+      padding: 2em 0;
+      display: none;
+    }
+
+    #lab-5-task-list:empty+#lab-5-empty {
       display: block;
     }
   </style>
@@ -369,11 +408,220 @@
       }
     }
 
+    function lab5BaseUrl() {
+      const input = document.getElementById('lab-5-base-url');
+      return (input ? input.value : 'http://localhost:8787').replace(/\/$/, '');
+    }
+
+    function lab5ApiKey() {
+      const input = document.getElementById('lab-5-api-key');
+      return input ? input.value.trim() : '';
+    }
+
+    function lab5Headers(includeJson) {
+      const headers = {
+        'x-api-key': lab5ApiKey(),
+      };
+      if (includeJson) {
+        headers['Content-Type'] = 'application/json';
+      }
+      return headers;
+    }
+
+    function lab5ErrorMessage(status, fallback) {
+      if (status === 401) return 'API key is missing';
+      if (status === 403) return 'Invalid API key';
+      return fallback;
+    }
+
+    let lab5StatusTimer = null;
+    function lab5ShowStatus(msg, isError) {
+      const el = document.getElementById('lab-5-status');
+      if (!el) return;
+      el.textContent = msg;
+      el.className = isError ? 'error' : 'success';
+      clearTimeout(lab5StatusTimer);
+      lab5StatusTimer = setTimeout(() => {
+        el.className = '';
+        el.textContent = '';
+        el.style.display = '';
+      }, 3000);
+    }
+
+    function lab5MakeItem(task) {
+      const li = document.createElement('li');
+      li.className = 'task-item' + (task.isCompleted ? ' done' : '');
+      li.dataset.id = task.id;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = task.isCompleted;
+      cb.setAttribute('aria-label', 'Mark task as ' + (task.isCompleted ? 'incomplete' : 'complete'));
+      cb.addEventListener('change', () => lab5ToggleTask(task.id, cb.checked, li));
+
+      const title = document.createElement('span');
+      title.className = 'task-title';
+      title.textContent = task.title;
+      title.contentEditable = 'false';
+      title.setAttribute('role', 'textbox');
+      title.setAttribute('aria-label', 'Task title (click to edit)');
+      title.setAttribute('tabindex', '0');
+
+      title.addEventListener('click', () => {
+        title.contentEditable = 'true';
+        title.focus();
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(title);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+
+      title.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          title.blur();
+        }
+        if (e.key === 'Escape') {
+          title.textContent = task.title;
+          title.contentEditable = 'false';
+          title.blur();
+        }
+      });
+
+      title.addEventListener('blur', () => {
+        title.contentEditable = 'false';
+        const newTitle = title.textContent.trim();
+        if (newTitle && newTitle !== task.title) {
+          lab5RenameTask(task.id, newTitle);
+          task.title = newTitle;
+        } else {
+          title.textContent = task.title;
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'task-delete-btn outline secondary';
+      delBtn.textContent = 'Delete';
+      delBtn.setAttribute('aria-label', 'Delete task');
+      delBtn.addEventListener('click', () => lab5DeleteTask(task.id, li));
+
+      li.appendChild(cb);
+      li.appendChild(title);
+      li.appendChild(delBtn);
+      return li;
+    }
+
+    function lab5RenderTasks(tasks) {
+      const list = document.getElementById('lab-5-task-list');
+      const empty = document.getElementById('lab-5-empty');
+      list.innerHTML = '';
+      tasks.forEach((task) => list.appendChild(lab5MakeItem(task)));
+      if (empty) empty.style.display = tasks.length === 0 ? 'block' : 'none';
+    }
+
+    async function lab5LoadTasks() {
+      try {
+        const res = await fetch(lab5BaseUrl() + '/tasks', {
+          headers: lab5Headers(false),
+        });
+        if (!res.ok) {
+          throw new Error(lab5ErrorMessage(res.status, 'HTTP ' + res.status));
+        }
+        const tasks = await res.json();
+        lab5RenderTasks(tasks);
+      } catch (e) {
+        lab5ShowStatus('Failed to load tasks: ' + e.message, true);
+      }
+    }
+
+    async function lab5HandleAdd(e) {
+      e.preventDefault();
+      const input = document.getElementById('lab-5-new-title');
+      const title = input.value.trim();
+      if (!title) return;
+      try {
+        const res = await fetch(lab5BaseUrl() + '/tasks', {
+          method: 'POST',
+          headers: lab5Headers(true),
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) {
+          throw new Error(lab5ErrorMessage(res.status, 'HTTP ' + res.status));
+        }
+        const task = await res.json();
+        const list = document.getElementById('lab-5-task-list');
+        const empty = document.getElementById('lab-5-empty');
+        list.appendChild(lab5MakeItem(task));
+        if (empty) empty.style.display = 'none';
+        input.value = '';
+        lab5ShowStatus('Task added!', false);
+      } catch (e) {
+        lab5ShowStatus('Failed to add task: ' + e.message, true);
+      }
+    }
+
+    async function lab5ToggleTask(id, isCompleted, li) {
+      try {
+        const res = await fetch(lab5BaseUrl() + '/tasks/' + id, {
+          method: 'PATCH',
+          headers: lab5Headers(true),
+          body: JSON.stringify({ isCompleted }),
+        });
+        if (!res.ok) {
+          throw new Error(lab5ErrorMessage(res.status, 'HTTP ' + res.status));
+        }
+        li.className = 'task-item' + (isCompleted ? ' done' : '');
+      } catch (e) {
+        lab5ShowStatus('Failed to update task: ' + e.message, true);
+        const cb = li.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = !isCompleted;
+      }
+    }
+
+    async function lab5RenameTask(id, title) {
+      try {
+        const res = await fetch(lab5BaseUrl() + '/tasks/' + id, {
+          method: 'PATCH',
+          headers: lab5Headers(true),
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) {
+          throw new Error(lab5ErrorMessage(res.status, 'HTTP ' + res.status));
+        }
+        lab5ShowStatus('Task updated!', false);
+      } catch (e) {
+        lab5ShowStatus('Failed to rename task: ' + e.message, true);
+      }
+    }
+
+    async function lab5DeleteTask(id, li) {
+      try {
+        const res = await fetch(lab5BaseUrl() + '/tasks/' + id, {
+          method: 'DELETE',
+          headers: lab5Headers(false),
+        });
+        if (!res.ok) {
+          throw new Error(lab5ErrorMessage(res.status, 'HTTP ' + res.status));
+        }
+        li.remove();
+        const list = document.getElementById('lab-5-task-list');
+        const empty = document.getElementById('lab-5-empty');
+        if (empty) empty.style.display = list.children.length === 0 ? 'block' : 'none';
+        lab5ShowStatus('Task deleted.', false);
+      } catch (e) {
+        lab5ShowStatus('Failed to delete task: ' + e.message, true);
+      }
+    }
+
     // Auto-load when navigating to #lab-4
     window.addEventListener('hashchange', () => {
       if (window.location.hash === '#lab-4') lab4LoadTasks();
+      if (window.location.hash === '#lab-5') lab5LoadTasks();
     });
     if (window.location.hash === '#lab-4') lab4LoadTasks();
+    if (window.location.hash === '#lab-5') lab5LoadTasks();
   </script>
   <main class="container">
     <nav>
@@ -507,8 +755,7 @@
       <div style="margin-bottom:1.5em;">
         <label for="lab-4-base-url"><strong>Base URL</strong></label>
         <fieldset role="group" style="margin-top:0.4em;">
-          <input type="text" id="lab-4-base-url" placeholder="http://localhost:8787"
-            value="http://localhost:8787" />
+          <input type="text" id="lab-4-base-url" placeholder="http://localhost:8787" value="http://localhost:8787" />
           <button type="button" onclick="lab4LoadTasks()">Refresh</button>
         </fieldset>
       </div>
@@ -527,9 +774,30 @@
     </section>
 
     <section id="lab-5" class="tabbed">
-      <h2>Lab 5: Durable Objects</h2>
-      <p>ทดสอบการใช้ Durable Objects ที่เราสร้างใน Lab 5 โดยการส่งคำขอ GET ไปยัง URL ของ Worker ของเรา</p>
-      <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+      <h2>Lab 5: More about API Guarding, middlewares, and OpenAPI</h2>
+
+      <div style="margin-bottom:1.5em;">
+        <label for="lab-5-base-url"><strong>Base URL</strong></label>
+        <fieldset role="group" style="margin-top:0.4em;">
+          <input type="text" id="lab-5-base-url" placeholder="http://localhost:8787" value="http://localhost:8787" />
+          <button type="button" onclick="lab5LoadTasks()">Refresh</button>
+        </fieldset>
+      </div>
+
+      <label for="lab-5-api-key"><strong>API Key</strong></label>
+      <input type="text" id="lab-5-api-key" placeholder="e.g. api-key-123" style="margin-bottom:1em;" />
+
+      <form onsubmit="lab5HandleAdd(event)">
+        <fieldset role="group">
+          <input type="text" id="lab-5-new-title" placeholder="Add a new task..." required />
+          <button type="submit">Add</button>
+        </fieldset>
+      </form>
+
+      <div id="lab-5-status"></div>
+
+      <ul id="lab-5-task-list"></ul>
+      <p id="lab-5-empty">No tasks yet. Add one above!</p>
     </section>
 
     <section id="home">
