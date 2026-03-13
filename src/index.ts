@@ -39,42 +39,77 @@ export default new Elysia({
 		},
 	)
 	// สำหรับการดูรายละเอียดของ task แต่ละตัว
-	.get('/tasks/:id', ({ params, status }) => {
-		const { id } = params as { id: string };
-		const task = tasks.find((t) => t.id === id);
-		if (!task) {
-			status(404, 'Task not found');
-		}
-		return task;
-	})
-	.patch('/tasks/:id', ({ params, body, status }) => {
-		const { id } = params as { id: string };
-		const taskIndex = tasks.findIndex((t) => t.id === id);
-		if (taskIndex === -1) {
-			status(404, 'Task not found');
-			return;
-		}
+	.get(
+		'/tasks/:id',
+		({ params, status }) => {
+			const { id } = params;
+			const task = tasks.find((t) => t.id === id);
+			if (!task) {
+				return status(404, 'Task not found');
+			}
+			return task;
+		},
+		{
+			body: t.Object({
+				id: t.String(),
+			}),
+			response: {
+				'404': t.String(),
+				'200': t.Object({
+					id: t.String(),
+					title: t.String(),
+					isCompleted: t.Boolean(),
+				}),
+			},
+		},
+	)
+	.patch(
+		'/tasks/:id',
+		({ params, body, status }) => {
+			const { id } = params;
+			const taskIndex = tasks.findIndex((t) => t.id === id);
+			if (taskIndex === -1) {
+				return status(404, 'Task not found');
+			}
 
-		const { title, isCompleted } = body as Partial<{ title: string; isCompleted: boolean }>;
+			const { title, isCompleted } = body as Partial<{ title: string; isCompleted: boolean }>;
 
-		if (title !== undefined) {
-			tasks[taskIndex].title = title;
-		}
-		if (isCompleted !== undefined) {
-			tasks[taskIndex].isCompleted = isCompleted;
-		}
+			if (title !== undefined) {
+				tasks[taskIndex].title = title;
+			}
+			if (isCompleted !== undefined) {
+				tasks[taskIndex].isCompleted = isCompleted;
+			}
 
-		return tasks[taskIndex];
-	})
-	.delete('/tasks/:id', ({ params, status }) => {
-		const { id } = params as { id: string };
-		const taskIndex = tasks.findIndex((t) => t.id === id);
-		if (taskIndex === -1) {
-			status(404, 'Task not found');
-			return;
-		}
+			return tasks[taskIndex];
+		},
+		{
+			params: t.Object({
+				id: t.String(),
+			}),
+			body: t.Object({
+				// Optional ไม่บังคับต้องมี แต่ถ้ามีก็ต้องเป็นชนิดที่กำหนด
+				title: t.Optional(t.String()),
+				isCompleted: t.Optional(t.Boolean()),
+			}),
+		},
+	)
+	.delete(
+		'/tasks/:id',
+		({ params, status }) => {
+			const { id } = params as { id: string };
+			const taskIndex = tasks.findIndex((t) => t.id === id);
+			if (taskIndex === -1) {
+				return status(404, 'Task not found');
+			}
 
-		tasks.splice(taskIndex, 1);
-		return { message: 'Task deleted successfully' };
-	})
+			tasks.splice(taskIndex, 1);
+			return { message: 'Task deleted successfully' };
+		},
+		{
+			params: t.Object({
+				id: t.String(),
+			}),
+		},
+	)
 	.compile();
