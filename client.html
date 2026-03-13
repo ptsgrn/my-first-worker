@@ -60,14 +60,110 @@
       top: -1.5em;
       left: 0;
     }
-    
+
     h3 {
       margin-top: 2em;
       top: 2em;
       position: sticky;
     }
+
+    /* Lab 4 Todo UI */
+    #lab-4-task-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      padding: 0.6em 0.5em;
+      border-bottom: 1px solid var(--pico-muted-border-color, #e0e0e0);
+    }
+
+    .task-item:last-child {
+      border-bottom: none;
+    }
+
+    .task-item input[type="checkbox"] {
+      flex-shrink: 0;
+      margin: 0;
+      width: 1.2em;
+      height: 1.2em;
+      cursor: pointer;
+    }
+
+    .task-title {
+      flex: 1;
+      padding: 0.15em 0.3em;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      outline: none;
+      font-size: 1em;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      word-break: break-word;
+    }
+
+    .task-title:hover {
+      border-color: var(--pico-muted-border-color, #ccc);
+    }
+
+    .task-title:focus {
+      border-color: var(--pico-primary, #1095c1);
+      cursor: text;
+      background: var(--pico-card-background-color, #fff);
+    }
+
+    .task-item.done .task-title {
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+
+    .task-delete-btn {
+      flex-shrink: 0;
+      margin: 0;
+      padding: 0.25em 0.65em;
+      font-size: 0.85em;
+      line-height: 1.4;
+    }
+
+    #lab-4-status {
+      display: none;
+      padding: 0.6em 1em;
+      border-radius: 4px;
+      margin-bottom: 1em;
+      font-size: 0.9em;
+    }
+
+    #lab-4-status.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    #lab-4-status.error {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    #lab-4-empty {
+      text-align: center;
+      color: var(--pico-muted-color, #888);
+      padding: 2em 0;
+      display: none;
+    }
+
+    #lab-4-task-list:empty + #lab-4-empty {
+      display: block;
+    }
   </style>
   <script>
+
     function sendrequest(method, inputId, outputId, bodyId) {
       const input = document.getElementById(inputId);
       const output = document.getElementById(outputId);
@@ -97,10 +193,192 @@
       }
     }
   </script>
+  <script>
+    /* ---- Lab 4 Todo API wrapper ---- */
+
+    function lab4BaseUrl() {
+      const input = document.getElementById('lab-4-base-url');
+      return (input ? input.value : 'http://localhost:8787').replace(/\/$/, '');
+    }
+
+    let lab4StatusTimer = null;
+    function lab4ShowStatus(msg, isError) {
+      const el = document.getElementById('lab-4-status');
+      if (!el) return;
+      el.textContent = msg;
+      el.className = isError ? 'error' : 'success';
+      clearTimeout(lab4StatusTimer);
+      lab4StatusTimer = setTimeout(() => {
+        el.className = '';
+        el.textContent = '';
+        el.style.display = '';
+      }, 3000);
+    }
+
+    function lab4MakeItem(task) {
+      const li = document.createElement('li');
+      li.className = 'task-item' + (task.isCompleted ? ' done' : '');
+      li.dataset.id = task.id;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = task.isCompleted;
+      cb.setAttribute('aria-label', 'Mark task as ' + (task.isCompleted ? 'incomplete' : 'complete'));
+      cb.addEventListener('change', () => lab4ToggleTask(task.id, cb.checked, li));
+
+      const title = document.createElement('span');
+      title.className = 'task-title';
+      title.textContent = task.title;
+      title.contentEditable = 'false';
+      title.setAttribute('role', 'textbox');
+      title.setAttribute('aria-label', 'Task title (click to edit)');
+      title.setAttribute('tabindex', '0');
+
+      title.addEventListener('click', () => {
+        title.contentEditable = 'true';
+        title.focus();
+        // move cursor to end
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(title);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+
+      title.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          title.blur();
+        }
+        if (e.key === 'Escape') {
+          title.textContent = task.title; // revert
+          title.contentEditable = 'false';
+          title.blur();
+        }
+      });
+
+      title.addEventListener('blur', () => {
+        title.contentEditable = 'false';
+        const newTitle = title.textContent.trim();
+        if (newTitle && newTitle !== task.title) {
+          lab4RenameTask(task.id, newTitle, title);
+          task.title = newTitle; // optimistic update for future edits
+        } else {
+          title.textContent = task.title; // revert if empty
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'task-delete-btn outline secondary';
+      delBtn.textContent = 'Delete';
+      delBtn.setAttribute('aria-label', 'Delete task');
+      delBtn.addEventListener('click', () => lab4DeleteTask(task.id, li));
+
+      li.appendChild(cb);
+      li.appendChild(title);
+      li.appendChild(delBtn);
+      return li;
+    }
+
+    function lab4RenderTasks(tasks) {
+      const list = document.getElementById('lab-4-task-list');
+      const empty = document.getElementById('lab-4-empty');
+      list.innerHTML = '';
+      tasks.forEach(t => list.appendChild(lab4MakeItem(t)));
+      if (empty) empty.style.display = tasks.length === 0 ? 'block' : 'none';
+    }
+
+    async function lab4LoadTasks() {
+      try {
+        const res = await fetch(lab4BaseUrl() + '/tasks');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const tasks = await res.json();
+        lab4RenderTasks(tasks);
+      } catch (e) {
+        lab4ShowStatus('Failed to load tasks: ' + e.message, true);
+      }
+    }
+
+    async function lab4HandleAdd(e) {
+      e.preventDefault();
+      const input = document.getElementById('lab-4-new-title');
+      const title = input.value.trim();
+      if (!title) return;
+      try {
+        const res = await fetch(lab4BaseUrl() + '/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const task = await res.json();
+        const list = document.getElementById('lab-4-task-list');
+        const empty = document.getElementById('lab-4-empty');
+        list.appendChild(lab4MakeItem(task));
+        if (empty) empty.style.display = 'none';
+        input.value = '';
+        lab4ShowStatus('Task added!', false);
+      } catch (e) {
+        lab4ShowStatus('Failed to add task: ' + e.message, true);
+      }
+    }
+
+    async function lab4ToggleTask(id, isCompleted, li) {
+      try {
+        const res = await fetch(lab4BaseUrl() + '/tasks/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isCompleted }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        li.className = 'task-item' + (isCompleted ? ' done' : '');
+      } catch (e) {
+        lab4ShowStatus('Failed to update task: ' + e.message, true);
+        // revert checkbox
+        const cb = li.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = !isCompleted;
+      }
+    }
+
+    async function lab4RenameTask(id, title, titleEl) {
+      try {
+        const res = await fetch(lab4BaseUrl() + '/tasks/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        lab4ShowStatus('Task updated!', false);
+      } catch (e) {
+        lab4ShowStatus('Failed to rename task: ' + e.message, true);
+      }
+    }
+
+    async function lab4DeleteTask(id, li) {
+      try {
+        const res = await fetch(lab4BaseUrl() + '/tasks/' + id, { method: 'DELETE' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        li.remove();
+        const list = document.getElementById('lab-4-task-list');
+        const empty = document.getElementById('lab-4-empty');
+        if (empty) empty.style.display = list.children.length === 0 ? 'block' : 'none';
+        lab4ShowStatus('Task deleted.', false);
+      } catch (e) {
+        lab4ShowStatus('Failed to delete task: ' + e.message, true);
+      }
+    }
+
+    // Auto-load when navigating to #lab-4
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash === '#lab-4') lab4LoadTasks();
+    });
+    if (window.location.hash === '#lab-4') lab4LoadTasks();
+  </script>
   <main class="container">
     <nav>
       <ul>
-        <li><strong>Tasks</strong><br />
+        <li><a href="#home"><strong>Tasks</strong></a><br />
           <p style="font-size: small;">Simple REST client for workshop</p>
         </li>
       </ul>
@@ -129,7 +407,8 @@
         <h3>
           <code>POST /tasks</code>
         </h3>
-        <form onsubmit="sendrequest('POST','lab-2-2-input', 'lab-2-2-output', 'lab-2-2-input-post-body'); return false;">
+        <form
+          onsubmit="sendrequest('POST','lab-2-2-input', 'lab-2-2-output', 'lab-2-2-input-post-body'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-2-2-input" placeholder="http://localhost:8787/tasks"
               value="http://localhost:8787/tasks" />
@@ -143,11 +422,10 @@
     </section>
 
     <section id="lab-3" class="tabbed">
-      <h2>Lab 3: Environment Variables</h2>
-      <p>ทดสอบ API endpoints ทั้งหมด โดยส่งคำขอไปยัง URL ของ Worker ของเรา</p>
-      <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+      <h2>Lab 3: Full CRUD Operations</h2>
       <div>
         <h3><code>GET /</code></h3>
+        <p>ดึงข้อมูลจาก Root</p>
         <form onsubmit="sendrequest('GET','lab-3-root-input', 'lab-3-root-output'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-3-root-input" placeholder="http://localhost:8787"
@@ -159,6 +437,7 @@
       </div>
       <div>
         <h3><code>GET /tasks</code></h3>
+        <p>ดึง task ทั้งหมด</p>
         <form onsubmit="sendrequest('GET','lab-3-tasks-input', 'lab-3-tasks-output'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-3-tasks-input" placeholder="http://localhost:8787/tasks"
@@ -170,6 +449,7 @@
       </div>
       <div>
         <h3><code>POST /tasks</code></h3>
+        <p>สร้าง task ใหม่ โดยส่งข้อมูลในรูปแบบ JSON เช่น <code>{"title": "New Task"}</code></p>
         <form onsubmit="sendrequest('POST','lab-3-post-input', 'lab-3-post-output', 'lab-3-post-body'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-3-post-input" placeholder="http://localhost:8787/tasks"
@@ -182,6 +462,7 @@
       </div>
       <div>
         <h3><code>GET /tasks/:id</code></h3>
+        <p>ดึงข้อมูล task ตาม ID</p>
         <form onsubmit="sendrequest('GET','lab-3-get-by-id-input', 'lab-3-get-by-id-output'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-3-get-by-id-input" placeholder="http://localhost:8787/tasks/{id}"
@@ -193,18 +474,22 @@
       </div>
       <div>
         <h3><code>PATCH /tasks/:id</code></h3>
-        <form onsubmit="sendrequest('PATCH','lab-3-patch-input', 'lab-3-patch-output', 'lab-3-patch-body'); return false;">
+        <p>อัปเดตข้อมูล task ตาม ID</p>
+        <form
+          onsubmit="sendrequest('PATCH','lab-3-patch-input', 'lab-3-patch-output', 'lab-3-patch-body'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-3-patch-input" placeholder="http://localhost:8787/tasks/{id}"
               value="http://localhost:8787/tasks/your-task-id" />
             <button type="submit" id="lab-3-patch-button">Send</button>
           </fieldset>
-          <textarea id="lab-3-patch-body" placeholder='{"title": "Updated Task", "isCompleted": true}' rows="1">{"title": "Updated Task", "isCompleted": true}</textarea>
+          <textarea id="lab-3-patch-body" placeholder='{"title": "Updated Task", "isCompleted": true}'
+            rows="1">{"title": "Updated Task", "isCompleted": true}</textarea>
         </form>
         <output id="lab-3-patch-output" class="output"></output>
       </div>
       <div>
         <h3><code>DELETE /tasks/:id</code></h3>
+        <p>ลบ task ตาม ID</p>
         <form onsubmit="sendrequest('DELETE','lab-3-delete-input', 'lab-3-delete-output'); return false;">
           <fieldset role="group">
             <input type="text" id="lab-3-delete-input" placeholder="http://localhost:8787/tasks/{id}"
@@ -218,8 +503,27 @@
 
     <section id="lab-4" class="tabbed">
       <h2>Lab 4: KV Storage</h2>
-      <p>ทดสอบการใช้ KV Storage ที่เราสร้างใน Lab 4 โดยการส่งคำขอ GET ไปยัง URL ของ Worker ของเรา</p>
-      <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+
+      <div style="margin-bottom:1.5em;">
+        <label for="lab-4-base-url"><strong>Base URL</strong></label>
+        <fieldset role="group" style="margin-top:0.4em;">
+          <input type="text" id="lab-4-base-url" placeholder="http://localhost:8787"
+            value="http://localhost:8787" />
+          <button type="button" onclick="lab4LoadTasks()">Refresh</button>
+        </fieldset>
+      </div>
+
+      <form onsubmit="lab4HandleAdd(event)">
+        <fieldset role="group">
+          <input type="text" id="lab-4-new-title" placeholder="Add a new task..." required />
+          <button type="submit">Add</button>
+        </fieldset>
+      </form>
+
+      <div id="lab-4-status"></div>
+
+      <ul id="lab-4-task-list"></ul>
+      <p id="lab-4-empty">No tasks yet. Add one above!</p>
     </section>
 
     <section id="lab-5" class="tabbed">
