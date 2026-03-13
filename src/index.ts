@@ -70,6 +70,9 @@ export default new Elysia({
 			return JSON.parse(taskData);
 		},
 		{
+			params: t.Object({
+				id: t.String(),
+			}),
 			body: t.Object({
 				id: t.String(),
 			}),
