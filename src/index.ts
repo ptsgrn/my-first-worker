@@ -18,7 +18,7 @@ export default new Elysia({
 	.get('/tasks', () => tasks)
 	.post(
 		'/tasks',
-		({ body }) => {
+		({ body, status }) => {
 			console.log('Received request body:', body);
 			const { title } = body as { title: string };
 			const newTask: Task = {
@@ -26,6 +26,11 @@ export default new Elysia({
 				title,
 				isCompleted: false,
 			};
+
+			// เช็คว่าซ้ำกับ task ที่มีอยู่แล้วหรือไม่
+			if (tasks.some((t) => t.title === title)) {
+				return status(400, 'Task with the same title already exists');
+			}
 
 			tasks.push(newTask);
 
@@ -36,6 +41,17 @@ export default new Elysia({
 			body: t.Object({
 				title: t.String(),
 			}),
+			response: {
+				400: t.String(),
+				200: t.Object({
+					id: t.String(),
+					title: t.String(),
+					isCompleted: t.Boolean(),
+				}),
+				// สามารถเพิ่ม response อื่นๆ ได้ตามต้องการ
+				// เช่น 500 สำหรับ error ภายใน server เป็นต้น
+				500: t.String(),
+			},
 		},
 	)
 	// สำหรับการดูรายละเอียดของ task แต่ละตัว
@@ -54,8 +70,8 @@ export default new Elysia({
 				id: t.String(),
 			}),
 			response: {
-				'404': t.String(),
-				'200': t.Object({
+				404: t.String(),
+				200: t.Object({
 					id: t.String(),
 					title: t.String(),
 					isCompleted: t.Boolean(),

@@ -144,8 +144,76 @@
 
     <section id="lab-3" class="tabbed">
       <h2>Lab 3: Environment Variables</h2>
-      <p>ทดสอบการใช้ Environment Variables ที่เราสร้างใน Lab 3 โดยการส่งคำขอ GET ไปยัง URL ของ Worker ของเรา</p>
+      <p>ทดสอบ API endpoints ทั้งหมด โดยส่งคำขอไปยัง URL ของ Worker ของเรา</p>
       <p>ตัวอย่าง URL: <code>https://your-worker-subdomain.workers.dev</code></p>
+      <div>
+        <h3><code>GET /</code></h3>
+        <form onsubmit="sendrequest('GET','lab-3-root-input', 'lab-3-root-output'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-3-root-input" placeholder="http://localhost:8787"
+              value="http://localhost:8787" />
+            <button type="submit" id="lab-3-root-button">Send</button>
+          </fieldset>
+        </form>
+        <output id="lab-3-root-output" class="output"></output>
+      </div>
+      <div>
+        <h3><code>GET /tasks</code></h3>
+        <form onsubmit="sendrequest('GET','lab-3-tasks-input', 'lab-3-tasks-output'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-3-tasks-input" placeholder="http://localhost:8787/tasks"
+              value="http://localhost:8787/tasks" />
+            <button type="submit" id="lab-3-tasks-button">Send</button>
+          </fieldset>
+        </form>
+        <output id="lab-3-tasks-output" class="output"></output>
+      </div>
+      <div>
+        <h3><code>POST /tasks</code></h3>
+        <form onsubmit="sendrequest('POST','lab-3-post-input', 'lab-3-post-output', 'lab-3-post-body'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-3-post-input" placeholder="http://localhost:8787/tasks"
+              value="http://localhost:8787/tasks" />
+            <button type="submit" id="lab-3-post-button">Send</button>
+          </fieldset>
+          <textarea id="lab-3-post-body" placeholder='{"title": "New Task"}' rows="1">{"title": "New Task"}</textarea>
+        </form>
+        <output id="lab-3-post-output" class="output"></output>
+      </div>
+      <div>
+        <h3><code>GET /tasks/:id</code></h3>
+        <form onsubmit="sendrequest('GET','lab-3-get-by-id-input', 'lab-3-get-by-id-output'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-3-get-by-id-input" placeholder="http://localhost:8787/tasks/{id}"
+              value="http://localhost:8787/tasks/your-task-id" />
+            <button type="submit" id="lab-3-get-by-id-button">Send</button>
+          </fieldset>
+        </form>
+        <output id="lab-3-get-by-id-output" class="output"></output>
+      </div>
+      <div>
+        <h3><code>PATCH /tasks/:id</code></h3>
+        <form onsubmit="sendrequest('PATCH','lab-3-patch-input', 'lab-3-patch-output', 'lab-3-patch-body'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-3-patch-input" placeholder="http://localhost:8787/tasks/{id}"
+              value="http://localhost:8787/tasks/your-task-id" />
+            <button type="submit" id="lab-3-patch-button">Send</button>
+          </fieldset>
+          <textarea id="lab-3-patch-body" placeholder='{"title": "Updated Task", "isCompleted": true}' rows="1">{"title": "Updated Task", "isCompleted": true}</textarea>
+        </form>
+        <output id="lab-3-patch-output" class="output"></output>
+      </div>
+      <div>
+        <h3><code>DELETE /tasks/:id</code></h3>
+        <form onsubmit="sendrequest('DELETE','lab-3-delete-input', 'lab-3-delete-output'); return false;">
+          <fieldset role="group">
+            <input type="text" id="lab-3-delete-input" placeholder="http://localhost:8787/tasks/{id}"
+              value="http://localhost:8787/tasks/your-task-id" />
+            <button type="submit" id="lab-3-delete-button">Send</button>
+          </fieldset>
+        </form>
+        <output id="lab-3-delete-output" class="output"></output>
+      </div>
     </section>
 
     <section id="lab-4" class="tabbed">
